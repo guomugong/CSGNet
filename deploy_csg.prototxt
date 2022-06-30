@@ -1,0 +1,389 @@
+name: "csgnet"
+
+
+
+
+input: "data"
+input_dim: 1
+input_dim: 3
+input_dim: 256
+input_dim: 256
+
+
+
+# head
+layer { name: "head_conv0" bottom: "data" top: "head_conv0" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 32 pad: 1  kernel_size: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "head_relu0" bottom: "head_conv0" top: "head_conv0" type: "ReLU" }
+
+layer { name: "head_conv1" bottom: "head_conv0" top: "head_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 1  kernel_size: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "head_relu1" bottom: "head_conv1" top: "head_conv1" type: "ReLU" }
+
+
+# H/4*W/4
+layer { name: "b3_conv0" bottom: "head_conv1" top: "b3_conv0" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 64 pad: 2  kernel_size: 5 stride: 4 weight_filler{type:"xavier"}} }
+layer { name: "b3_ReLU0" bottom: "b3_conv0" top: "b3_conv0" type: "ReLU" }
+
+layer { name: "b3_conv1" bottom: "b3_conv0" top: "b3_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 1  kernel_size: 3 weight_filler{type:"xavier"}} }
+layer { name: "b3_ReLU1" bottom: "b3_conv1" top: "b3_conv1" type: "ReLU" }
+
+layer { name: "b3_head_drop" type: "Dropout" bottom: "b3_conv1" top: "b3_conv1" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b3_mod1_conv1" bottom: "b3_conv1" top: "b3_mod1_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod1_relu1" bottom: "b3_mod1_conv1" top: "b3_mod1_conv1" type: "ReLU" }
+layer { name: "b3_mod1_conv2" bottom: "b3_conv1" top: "b3_mod1_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod1_relu2" bottom: "b3_mod1_conv2" top: "b3_mod1_conv2" type: "ReLU" }
+layer { name: "b3_mod1_conv3" bottom: "b3_conv1" top: "b3_mod1_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 1  kernel_size: 3 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod1_relu3" bottom: "b3_mod1_conv3" top: "b3_mod1_conv3" type: "ReLU" }
+layer { name: "b3_mod1_conv4" bottom: "b3_conv1" top: "b3_mod1_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod1_relu4" bottom: "b3_mod1_conv4" top: "b3_mod1_conv4" type: "ReLU" }
+layer { name: 'b3_mod1_concat' bottom: "b3_mod1_conv1" bottom: "b3_mod1_conv2" bottom: "b3_mod1_conv3" 
+	bottom: "b3_mod1_conv4" top: "b3_mod1_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b3_mod1_concat/reduce" bottom: "b3_mod1_concat" top: "b3_mod1_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod1_relu5" bottom: "b3_mod1_reduce" top: "b3_mod1_reduce" type: "ReLU" }
+layer { name: 'b3_mod1_out' bottom: "b3_mod1_reduce" bottom: "b3_conv1" top: "b3_mod1_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b3_mod1_drop" type: "Dropout" bottom: "b3_mod1_out" top: "b3_mod1_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b3_mod2_conv1" bottom: "b3_mod1_out" top: "b3_mod2_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod2_relu1" bottom: "b3_mod2_conv1" top: "b3_mod2_conv1" type: "ReLU" }
+layer { name: "b3_mod2_conv2" bottom: "b3_mod1_out" top: "b3_mod2_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod2_relu2" bottom: "b3_mod2_conv2" top: "b3_mod2_conv2" type: "ReLU" }
+layer { name: "b3_mod2_conv3" bottom: "b3_mod1_out" top: "b3_mod2_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod2_relu3" bottom: "b3_mod2_conv3" top: "b3_mod2_conv3" type: "ReLU" }
+layer { name: "b3_mod2_conv4" bottom: "b3_mod1_out" top: "b3_mod2_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod2_relu4" bottom: "b3_mod2_conv4" top: "b3_mod2_conv4" type: "ReLU" }
+layer { name: 'b3_mod2_concat' bottom: "b3_mod2_conv1" bottom: "b3_mod2_conv2" bottom: "b3_mod2_conv3" 
+	bottom: "b3_mod2_conv4" top: "b3_mod2_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b3_mod2_concat/reduce" bottom: "b3_mod2_concat" top: "b3_mod2_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod2_relu5" bottom: "b3_mod2_reduce" top: "b3_mod2_reduce" type: "ReLU" }
+layer { name: 'b3_mod2_out' bottom: "b3_mod2_reduce" bottom: "b3_mod1_out" top: "b3_mod2_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b3_mod2_drop" type: "Dropout" bottom: "b3_mod2_out" top: "b3_mod2_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b3_mod3_conv1" bottom: "b3_mod2_out" top: "b3_mod3_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod3_relu1" bottom: "b3_mod3_conv1" top: "b3_mod3_conv1" type: "ReLU" }
+layer { name: "b3_mod3_conv2" bottom: "b3_mod2_out" top: "b3_mod3_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod3_relu2" bottom: "b3_mod3_conv2" top: "b3_mod3_conv2" type: "ReLU" }
+layer { name: "b3_mod3_conv3" bottom: "b3_mod2_out" top: "b3_mod3_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod3_relu3" bottom: "b3_mod3_conv3" top: "b3_mod3_conv3" type: "ReLU" }
+layer { name: "b3_mod3_conv4" bottom: "b3_mod2_out" top: "b3_mod3_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod3_relu4" bottom: "b3_mod3_conv4" top: "b3_mod3_conv4" type: "ReLU" }
+layer { name: 'b3_mod3_concat' bottom: "b3_mod3_conv1" bottom: "b3_mod3_conv2" bottom: "b3_mod3_conv3" 
+	bottom: "b3_mod3_conv4" top: "b3_mod3_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b3_mod3_concat/reduce" bottom: "b3_mod3_concat" top: "b3_mod3_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod3_relu5" bottom: "b3_mod3_reduce" top: "b3_mod3_reduce" type: "ReLU" }
+layer { name: 'b3_mod3_out' bottom: "b3_mod3_reduce" bottom: "b3_mod2_out" top: "b3_mod3_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b3_mod3_drop" type: "Dropout" bottom: "b3_mod3_out" top: "b3_mod3_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b3_mod4_conv1" bottom: "b3_mod3_out" top: "b3_mod4_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod4_relu1" bottom: "b3_mod4_conv1" top: "b3_mod4_conv1" type: "ReLU" }
+layer { name: "b3_mod4_conv2" bottom: "b3_mod3_out" top: "b3_mod4_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod4_relu2" bottom: "b3_mod4_conv2" top: "b3_mod4_conv2" type: "ReLU" }
+layer { name: "b3_mod4_conv3" bottom: "b3_mod3_out" top: "b3_mod4_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod4_relu3" bottom: "b3_mod4_conv3" top: "b3_mod4_conv3" type: "ReLU" }
+layer { name: "b3_mod4_conv4" bottom: "b3_mod3_out" top: "b3_mod4_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 9  kernel_size: 3 dilation: 9 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod4_relu4" bottom: "b3_mod4_conv4" top: "b3_mod4_conv4" type: "ReLU" }
+layer { name: 'b3_mod4_concat' bottom: "b3_mod4_conv1" bottom: "b3_mod4_conv2" bottom: "b3_mod4_conv3" 
+	bottom: "b3_mod4_conv4" top: "b3_mod4_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b3_mod4_concat/reduce" bottom: "b3_mod4_concat" top: "b3_mod4_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b3_mod4_relu5" bottom: "b3_mod4_reduce" top: "b3_mod4_reduce" type: "ReLU" }
+layer { name: 'b3_mod4_out' bottom: "b3_mod4_reduce" bottom: "b3_mod3_out" top: "b3_mod4_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b3_mod4_drop" type: "Dropout" bottom: "b3_mod4_out" top: "b3_mod4_out" dropout_param {dropout_ratio: 0.1}}
+
+# supervision loss 
+layer { name: "b3_score" type: "Convolution" bottom: "b3_mod4_out" top: "b3_score"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 1 kernel_size: 1 pad: 0 weight_filler {type:"xavier"} } }
+layer { name: "b3_up" type: "Deconvolution"  bottom: 'b3_score' top: 'b3_up'
+	  param { lr_mult: 0 decay_mult: 1}  param { lr_mult: 0 decay_mult: 0}
+		  convolution_param { kernel_size: 8 stride: 4 num_output: 1  weight_filler {type:"bilinear"}} }
+layer { name: "b3_crop" type: "Crop" bottom: 'b3_up' bottom: 'data' top: 'b3_upscore' crop_param {axis: 2 offset: 3 }}
+
+
+# H/2*W/2
+layer { name: 'b2_in' bottom: "head_conv1" bottom: "b3_upscore" top: 'b2_in' type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b2_conv0" bottom: "b2_in" top: "b2_conv0" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 64 pad: 1  kernel_size: 3 stride: 2 weight_filler{type:"xavier"}} }
+layer { name: "b2_ReLU0" bottom: "b2_conv0" top: "b2_conv0" type: "ReLU" }
+
+layer { name: "b2_conv1" bottom: "b2_conv0" top: "b2_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 1  kernel_size: 3 weight_filler{type:"xavier"}} }
+layer { name: "b2_ReLU1" bottom: "b2_conv1" top: "b2_conv1" type: "ReLU" }
+layer { name: "b2_head_drop" type: "Dropout" bottom: "b2_conv1" top: "b2_conv1" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b2_mod1_conv1" bottom: "b2_conv1" top: "b2_mod1_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod1_relu1" bottom: "b2_mod1_conv1" top: "b2_mod1_conv1" type: "ReLU" }
+layer { name: "b2_mod1_conv2" bottom: "b2_conv1" top: "b2_mod1_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod1_relu2" bottom: "b2_mod1_conv2" top: "b2_mod1_conv2" type: "ReLU" }
+layer { name: "b2_mod1_conv3" bottom: "b2_conv1" top: "b2_mod1_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 1  kernel_size: 3 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod1_relu3" bottom: "b2_mod1_conv3" top: "b2_mod1_conv3" type: "ReLU" }
+layer { name: "b2_mod1_conv4" bottom: "b2_conv1" top: "b2_mod1_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod1_relu4" bottom: "b2_mod1_conv4" top: "b2_mod1_conv4" type: "ReLU" }
+layer { name: 'b2_mod1_concat' bottom: "b2_mod1_conv1" bottom: "b2_mod1_conv2" bottom: "b2_mod1_conv3" 
+	bottom: "b2_mod1_conv4" top: "b2_mod1_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b2_mod1_concat/reduce" bottom: "b2_mod1_concat" top: "b2_mod1_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod1_relu5" bottom: "b2_mod1_reduce" top: "b2_mod1_reduce" type: "ReLU" }
+layer { name: 'b2_mod1_out' bottom: "b2_mod1_reduce" bottom: "b2_conv1" top: "b2_mod1_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b2_mod1_drop" type: "Dropout" bottom: "b2_mod1_out" top: "b2_mod1_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b2_mod2_conv1" bottom: "b2_mod1_out" top: "b2_mod2_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod2_relu1" bottom: "b2_mod2_conv1" top: "b2_mod2_conv1" type: "ReLU" }
+layer { name: "b2_mod2_conv2" bottom: "b2_mod1_out" top: "b2_mod2_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod2_relu2" bottom: "b2_mod2_conv2" top: "b2_mod2_conv2" type: "ReLU" }
+layer { name: "b2_mod2_conv3" bottom: "b2_mod1_out" top: "b2_mod2_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod2_relu3" bottom: "b2_mod2_conv3" top: "b2_mod2_conv3" type: "ReLU" }
+layer { name: "b2_mod2_conv4" bottom: "b2_mod1_out" top: "b2_mod2_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod2_relu4" bottom: "b2_mod2_conv4" top: "b2_mod2_conv4" type: "ReLU" }
+layer { name: 'b2_mod2_concat' bottom: "b2_mod2_conv1" bottom: "b2_mod2_conv2" bottom: "b2_mod2_conv3" 
+	bottom: "b2_mod2_conv4" top: "b2_mod2_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b2_mod2_concat/reduce" bottom: "b2_mod2_concat" top: "b2_mod2_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod2_relu5" bottom: "b2_mod2_reduce" top: "b2_mod2_reduce" type: "ReLU" }
+layer { name: 'b2_mod2_out' bottom: "b2_mod2_reduce" bottom: "b2_mod1_out" top: "b2_mod2_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b2_mod2_drop" type: "Dropout" bottom: "b2_mod2_out" top: "b2_mod2_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b2_mod3_conv1" bottom: "b2_mod2_out" top: "b2_mod3_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod3_relu1" bottom: "b2_mod3_conv1" top: "b2_mod3_conv1" type: "ReLU" }
+layer { name: "b2_mod3_conv2" bottom: "b2_mod2_out" top: "b2_mod3_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod3_relu2" bottom: "b2_mod3_conv2" top: "b2_mod3_conv2" type: "ReLU" }
+layer { name: "b2_mod3_conv3" bottom: "b2_mod2_out" top: "b2_mod3_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod3_relu3" bottom: "b2_mod3_conv3" top: "b2_mod3_conv3" type: "ReLU" }
+layer { name: "b2_mod3_conv4" bottom: "b2_mod2_out" top: "b2_mod3_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod3_relu4" bottom: "b2_mod3_conv4" top: "b2_mod3_conv4" type: "ReLU" }
+layer { name: 'b2_mod3_concat' bottom: "b2_mod3_conv1" bottom: "b2_mod3_conv2" bottom: "b2_mod3_conv3" 
+	bottom: "b2_mod3_conv4" top: "b2_mod3_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b2_mod3_concat/reduce" bottom: "b2_mod3_concat" top: "b2_mod3_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod3_relu5" bottom: "b2_mod3_reduce" top: "b2_mod3_reduce" type: "ReLU" }
+layer { name: 'b2_mod3_out' bottom: "b2_mod3_reduce" bottom: "b2_mod2_out" top: "b2_mod3_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b2_mod3_drop" type: "Dropout" bottom: "b2_mod3_out" top: "b2_mod3_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b2_mod4_conv1" bottom: "b2_mod3_out" top: "b2_mod4_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod4_relu1" bottom: "b2_mod4_conv1" top: "b2_mod4_conv1" type: "ReLU" }
+layer { name: "b2_mod4_conv2" bottom: "b2_mod3_out" top: "b2_mod4_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod4_relu2" bottom: "b2_mod4_conv2" top: "b2_mod4_conv2" type: "ReLU" }
+layer { name: "b2_mod4_conv3" bottom: "b2_mod3_out" top: "b2_mod4_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod4_relu3" bottom: "b2_mod4_conv3" top: "b2_mod4_conv3" type: "ReLU" }
+layer { name: "b2_mod4_conv4" bottom: "b2_mod3_out" top: "b2_mod4_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 9  kernel_size: 3 dilation: 9 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod4_relu4" bottom: "b2_mod4_conv4" top: "b2_mod4_conv4" type: "ReLU" }
+layer { name: 'b2_mod4_concat' bottom: "b2_mod4_conv1" bottom: "b2_mod4_conv2" bottom: "b2_mod4_conv3" 
+	bottom: "b2_mod4_conv4" top: "b2_mod4_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b2_mod4_concat/reduce" bottom: "b2_mod4_concat" top: "b2_mod4_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b2_mod4_relu5" bottom: "b2_mod4_reduce" top: "b2_mod4_reduce" type: "ReLU" }
+layer { name: 'b2_mod4_out' bottom: "b2_mod4_reduce" bottom: "b2_mod3_out" top: "b2_mod4_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b2_mod4_drop" type: "Dropout" bottom: "b2_mod4_out" top: "b2_mod4_out" dropout_param {dropout_ratio: 0.1}}
+
+
+# supervision loss 
+layer { name: "b2_score" type: "Convolution" bottom: "b2_mod4_out" top: "b2_score"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 1 kernel_size: 1 pad: 0 weight_filler {type:"xavier"} } }
+layer { name: "b2_up" type: "Deconvolution"  bottom: 'b2_score' top: 'b2_up'
+	  param { lr_mult: 0 decay_mult: 1}  param { lr_mult: 0 decay_mult: 0}
+		  convolution_param { kernel_size: 4 stride: 2 num_output: 1  weight_filler {type:"bilinear"}} }
+layer { name: "b2_crop" type: "Crop" bottom: 'b2_up' bottom: 'data' top: 'b2_upscore' crop_param {axis: 2 offset: 1 }}
+
+# H*W
+layer { name: 'b1_in' bottom: "head_conv1" bottom: "b2_upscore" top: 'b1_in' type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b1_conv0" bottom: "b1_in" top: "b1_conv0" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 64 pad: 1  kernel_size: 3 weight_filler{type:"xavier"}} }
+layer { name: "b1_ReLU0" bottom: "b1_conv0" top: "b1_conv0" type: "ReLU" }
+
+layer { name: "b1_conv1" bottom: "b1_conv0" top: "b1_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 1  kernel_size: 3 weight_filler{type:"xavier"}} }
+layer { name: "b1_ReLU1" bottom: "b1_conv1" top: "b1_conv1" type: "ReLU" }
+
+layer { name: "b1_head_drop" type: "Dropout" bottom: "b1_conv1" top: "b1_conv1" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b1_mod1_conv1" bottom: "b1_conv1" top: "b1_mod1_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod1_relu1" bottom: "b1_mod1_conv1" top: "b1_mod1_conv1" type: "ReLU" }
+layer { name: "b1_mod1_conv2" bottom: "b1_conv1" top: "b1_mod1_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod1_relu2" bottom: "b1_mod1_conv2" top: "b1_mod1_conv2" type: "ReLU" }
+layer { name: "b1_mod1_conv3" bottom: "b1_conv1" top: "b1_mod1_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 1  kernel_size: 3 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod1_relu3" bottom: "b1_mod1_conv3" top: "b1_mod1_conv3" type: "ReLU" }
+layer { name: "b1_mod1_conv4" bottom: "b1_conv1" top: "b1_mod1_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod1_relu4" bottom: "b1_mod1_conv4" top: "b1_mod1_conv4" type: "ReLU" }
+layer { name: 'b1_mod1_concat' bottom: "b1_mod1_conv1" bottom: "b1_mod1_conv2" bottom: "b1_mod1_conv3" 
+	bottom: "b1_mod1_conv4" top: "b1_mod1_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b1_mod1_concat/reduce" bottom: "b1_mod1_concat" top: "b1_mod1_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod1_relu5" bottom: "b1_mod1_reduce" top: "b1_mod1_reduce" type: "ReLU" }
+layer { name: 'b1_mod1_out' bottom: "b1_mod1_reduce" bottom: "b1_conv1" top: "b1_mod1_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b1_mod1_drop" type: "Dropout" bottom: "b1_mod1_out" top: "b1_mod1_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b1_mod2_conv1" bottom: "b1_mod1_out" top: "b1_mod2_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod2_relu1" bottom: "b1_mod2_conv1" top: "b1_mod2_conv1" type: "ReLU" }
+layer { name: "b1_mod2_conv2" bottom: "b1_mod1_out" top: "b1_mod2_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod2_relu2" bottom: "b1_mod2_conv2" top: "b1_mod2_conv2" type: "ReLU" }
+layer { name: "b1_mod2_conv3" bottom: "b1_mod1_out" top: "b1_mod2_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 3  kernel_size: 3 dilation: 3 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod2_relu3" bottom: "b1_mod2_conv3" top: "b1_mod2_conv3" type: "ReLU" }
+layer { name: "b1_mod2_conv4" bottom: "b1_mod1_out" top: "b1_mod2_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod2_relu4" bottom: "b1_mod2_conv4" top: "b1_mod2_conv4" type: "ReLU" }
+layer { name: 'b1_mod2_concat' bottom: "b1_mod2_conv1" bottom: "b1_mod2_conv2" bottom: "b1_mod2_conv3" 
+	bottom: "b1_mod2_conv4" top: "b1_mod2_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b1_mod2_concat/reduce" bottom: "b1_mod2_concat" top: "b1_mod2_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod2_relu5" bottom: "b1_mod2_reduce" top: "b1_mod2_reduce" type: "ReLU" }
+layer { name: 'b1_mod2_out' bottom: "b1_mod2_reduce" bottom: "b1_mod1_out" top: "b1_mod2_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b1_mod2_drop" type: "Dropout" bottom: "b1_mod2_out" top: "b1_mod2_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b1_mod3_conv1" bottom: "b1_mod2_out" top: "b1_mod3_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod3_relu1" bottom: "b1_mod3_conv1" top: "b1_mod3_conv1" type: "ReLU" }
+layer { name: "b1_mod3_conv2" bottom: "b1_mod2_out" top: "b1_mod3_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod3_relu2" bottom: "b1_mod3_conv2" top: "b1_mod3_conv2" type: "ReLU" }
+layer { name: "b1_mod3_conv3" bottom: "b1_mod2_out" top: "b1_mod3_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 5  kernel_size: 3 dilation: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod3_relu3" bottom: "b1_mod3_conv3" top: "b1_mod3_conv3" type: "ReLU" }
+layer { name: "b1_mod3_conv4" bottom: "b1_mod2_out" top: "b1_mod3_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod3_relu4" bottom: "b1_mod3_conv4" top: "b1_mod3_conv4" type: "ReLU" }
+layer { name: 'b1_mod3_concat' bottom: "b1_mod3_conv1" bottom: "b1_mod3_conv2" bottom: "b1_mod3_conv3" 
+	bottom: "b1_mod3_conv4" top: "b1_mod3_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b1_mod3_concat/reduce" bottom: "b1_mod3_concat" top: "b1_mod3_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod3_relu5" bottom: "b1_mod3_reduce" top: "b1_mod3_reduce" type: "ReLU" }
+layer { name: 'b1_mod3_out' bottom: "b1_mod3_reduce" bottom: "b1_mod2_out" top: "b1_mod3_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b1_mod3_drop" type: "Dropout" bottom: "b1_mod3_out" top: "b1_mod3_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b1_mod4_conv1" bottom: "b1_mod3_out" top: "b1_mod4_conv1" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 2 pad_w: 0  kernel_h: 5 kernel_w: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod4_relu1" bottom: "b1_mod4_conv1" top: "b1_mod4_conv1" type: "ReLU" }
+layer { name: "b1_mod4_conv2" bottom: "b1_mod3_out" top: "b1_mod4_conv2" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad_h: 0 pad_w: 2  kernel_h: 1 kernel_w: 5 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod4_relu2" bottom: "b1_mod4_conv2" top: "b1_mod4_conv2" type: "ReLU" }
+layer { name: "b1_mod4_conv3" bottom: "b1_mod3_out" top: "b1_mod4_conv3" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 7  kernel_size: 3 dilation: 7 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod4_relu3" bottom: "b1_mod4_conv3" top: "b1_mod4_conv3" type: "ReLU" }
+layer { name: "b1_mod4_conv4" bottom: "b1_mod3_out" top: "b1_mod4_conv4" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 24 pad: 9  kernel_size: 3 dilation: 9 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod4_relu4" bottom: "b1_mod4_conv4" top: "b1_mod4_conv4" type: "ReLU" }
+layer { name: 'b1_mod4_concat' bottom: "b1_mod4_conv1" bottom: "b1_mod4_conv2" bottom: "b1_mod4_conv3" 
+	bottom: "b1_mod4_conv4" top: "b1_mod4_concat" type: "Concat" concat_param{concat_dim:1}}
+layer { name: "b1_mod4_concat/reduce" bottom: "b1_mod4_concat" top: "b1_mod4_reduce" type: "Convolution"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 48 pad: 0  kernel_size: 1 dilation: 1 stride: 1 weight_filler{type:"xavier"}} }
+layer { name: "b1_mod4_relu5" bottom: "b1_mod4_reduce" top: "b1_mod4_reduce" type: "ReLU" }
+layer { name: 'b1_mod4_out' bottom: "b1_mod4_reduce" bottom: "b1_mod3_out" top: "b1_mod4_out" type: "Eltwise" eltwise_param{operation:SUM}}
+layer { name: "b1_mod4_drop" type: "Dropout" bottom: "b1_mod4_out" top: "b1_mod4_out" dropout_param {dropout_ratio: 0.1}}
+
+layer { name: "b1_pred" type: "Convolution" bottom: "b1_mod4_out" top: "b1_pred"
+  param { lr_mult: 1 decay_mult: 1 } param { lr_mult: 2 decay_mult: 0}
+  convolution_param { num_output: 1 kernel_size: 3 pad: 1 weight_filler {type:"xavier"} } }
+layer { type: "Sigmoid" bottom: "b1_pred"  top: "output" }
